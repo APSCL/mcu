@@ -37,7 +37,7 @@ void setup() {
   #if DEBUG
   Serial.begin(115200);
   #endif
-  Serial2.begin(9600);
+  Serial.begin(9600);
   
   left_steer.attach(servo_left_pin);
   right_steer.attach(servo_right_pin);
@@ -55,14 +55,13 @@ void setup() {
 
   /* PID Setup */
   motor_pid.SetMode(AUTOMATIC);
-  
 }
 
 void loop() {
-  if(Serial2.available() >= 8){
+  if(Serial.available() >= 8){
     float turn, velocity, angle;
     byte drive_msg[8];
-    Serial2.readBytes(drive_msg, 8);
+    Serial.readBytes(drive_msg, 8);
     
     union {
       float f;
@@ -82,18 +81,11 @@ void loop() {
     velocity = u.f;
 
     /* CLIPPING */
-    if(turn > 1){
-      turn = 1;
-    }
-    else if (turn < -1){
-      turn = -1;
-    }
-    if(velocity > 1){
-      velocity = 1;
-    } 
-    else if (velocity < -1){
-      velocity = -1;
-    }
+    if(turn > 1)        turn = 1;
+    else if (turn < -1) turn = -1;
+    
+    if(velocity > 1)        velocity = 1;
+    else if (velocity < -1) velocity = -1;
 
     /* STEERING */
     float theta, turn_radius, theta_in, theta_out, angle_left, angle_right;
@@ -166,11 +158,7 @@ void loop() {
 
     motor_encoder = (double)abs(velo);
     motor_pid.Compute();
-    if(motor_pwm == 0){
-      analogWrite(motor_enable_pin, 255);
-    }
-    else{
-      analogWrite(motor_enable_pin, motor_pwm);
-    }
+    if(motor_pwm == 0)  analogWrite(motor_enable_pin, 255);
+    else                analogWrite(motor_enable_pin, motor_pwm);
   }
 }
