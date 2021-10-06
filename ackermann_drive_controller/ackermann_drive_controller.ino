@@ -25,7 +25,7 @@ unsigned long last_read;
 unsigned long last_count;
 ESP32Encoder encoder;
 
-double Kp = 4;
+double Kp = 8;
 double Ki = 7;
 double Kd = 0.4;
 double motor_encoder = 0;
