@@ -7,8 +7,12 @@
 #define MAX_TURN_DEG 26
 #define MAX_TURN_RAD MAX_TURN_DEG * PI / 180
 #define WHEEL_BASE 342
+#define WHEEL_BASE_METERS 0.342
 #define HALF_WHEEL_BASE WHEEL_BASE/2
+#define HALF_WHEEL_BASE_METERS 0.171
 #define TRACK_WIDTH 191
+#define HALF_TRACK_WIDTH_M 0.0955
+#define MIN_TURN_RADIUS_METERS WHEEL_BASE_METERS / tan(MAX_TURN_RAD)
 
 // Pin Descriptions
 int servo_left_pin = 23;
@@ -79,10 +83,10 @@ void loop() {
     u.b[2] = drive_msg[5];
     u.b[3] = drive_msg[4];
     velocity = u.f;
-
+        
     /* CLIPPING */
-    if(turn > 1)        turn = 1;
-    else if (turn < -1) turn = -1;
+    /*if(turn > MAX_TURN_RAD)        turn = MAX_TURN_RAD;
+    else if (turn < -MAX_TURN_RAD) turn = -MAX_TURN_RAD;*/
     
     if(velocity > 1)        velocity = 1;
     else if (velocity < -1) velocity = -1;
@@ -95,20 +99,26 @@ void loop() {
     }
     else{
       /* Turn Scaling */
-      theta = turn * MAX_TURN_RAD;
+      // theta = turn;
   
       /* Ackermann Steering Geometry */
-      turn_radius = WHEEL_BASE / tan(theta);
-      theta_in = atan2(WHEEL_BASE, turn_radius - HALF_WHEEL_BASE);
-      theta_out = atan2(WHEEL_BASE, turn_radius + HALF_WHEEL_BASE);
+      //turn_radius = WHEEL_BASE / tan(theta);
+      turn_radius = abs(velocity / turn);
+
+      //if(turn_radius < MIN_TURN_RADIUS_METERS) turn_radius = MIN_TURN_RADIUS_METERS;
+     
+        theta_in = atan2(WHEEL_BASE_METERS, turn_radius - HALF_TRACK_WIDTH_M);
+        theta_out = atan2(WHEEL_BASE_METERS, turn_radius + HALF_TRACK_WIDTH_M);  
+      
+      
   
       if(turn > 0){
         angle_left = theta_in + HALF_PI;
         angle_right = theta_out + HALF_PI;
       }
       else{
-        angle_left = theta_in - HALF_PI;
-        angle_right = theta_out - HALF_PI;
+        angle_left = HALF_PI - theta_out;
+        angle_right = HALF_PI - theta_in;
       }
     }
 
