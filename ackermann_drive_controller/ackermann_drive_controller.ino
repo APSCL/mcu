@@ -6,13 +6,14 @@
 
 #define MAX_TURN_DEG 26
 #define MAX_TURN_RAD MAX_TURN_DEG * PI / 180
-#define WHEEL_BASE 342
-#define WHEEL_BASE_METERS 0.342
-#define HALF_WHEEL_BASE WHEEL_BASE/2
-#define HALF_WHEEL_BASE_METERS 0.171
-#define TRACK_WIDTH 191
-#define HALF_TRACK_WIDTH_M 0.0955
-#define MIN_TURN_RADIUS_METERS WHEEL_BASE_METERS / tan(MAX_TURN_RAD)
+#define MIN_TURN_RADIUS WHEEL_BASE / tan(MAX_TURN_RAD)
+
+#define WHEEL_BASE 0.342
+#define HALF_WHEEL_BASE WHEEL_BASE / 2
+
+#define TRACK_WIDTH 0.191
+#define HALF_TRACK_WIDTH TRACK_WIDTH / 2
+
 
 // Pin Descriptions
 int servo_left_pin = 23;
@@ -23,10 +24,9 @@ int motor_bck_pin = 18;
 int encoder_a_pin = 26;
 int encoder_b_pin = 25;
 
-Servo left_steer, right_steer;
+Servo servo_left, servo_right;
 
-unsigned long last_read;
-unsigned long last_count;
+unsigned long count_prev, time_prev;
 ESP32Encoder encoder;
 
 double Kp = 8;
@@ -42,15 +42,17 @@ void setup() {
   Serial.begin(115200);
   #endif
   Serial.begin(9600);
-  
-  left_steer.attach(servo_left_pin);
-  right_steer.attach(servo_right_pin);
+
+  /* Servo Setup */
+  servo_left.attach(servo_left_pin);
+  servo_right.attach(servo_right_pin);
+  servo_left.writeMicroseconds(1500);
+  servo_right.writeMicroseconds(1500);
+
+  /* Motor Setup */
   pinMode(motor_enable_pin, OUTPUT);
   pinMode(motor_fwd_pin, OUTPUT);
   pinMode(motor_bck_pin, OUTPUT);
-
-  left_steer.writeMicroseconds(1500);
-  right_steer.writeMicroseconds(1500);
   analogWrite(motor_enable_pin, 0);
 
   pinMode(encoder_a_pin, INPUT);
@@ -63,7 +65,7 @@ void setup() {
 
 void loop() {
   if(Serial.available() >= 8){
-    float turn, velocity, angle;
+    float ang_z, lin_x;
     byte drive_msg[8];
     Serial.readBytes(drive_msg, 8);
     
@@ -76,45 +78,36 @@ void loop() {
     u.b[1] = drive_msg[2];
     u.b[2] = drive_msg[1];
     u.b[3] = drive_msg[0];
-    turn = u.f;
+    ang_z = u.f;
 
     u.b[0] = drive_msg[7];
     u.b[1] = drive_msg[6];
     u.b[2] = drive_msg[5];
     u.b[3] = drive_msg[4];
-    velocity = u.f;
-        
-    /* CLIPPING */
-    /*if(turn > MAX_TURN_RAD)        turn = MAX_TURN_RAD;
-    else if (turn < -MAX_TURN_RAD) turn = -MAX_TURN_RAD;*/
+    lin_x = u.f;
+
+    #if DEBUG
+    printf("ANG_Z = %f LIN_X = %f\n", ang_z, lin_x);
+    #endif
     
-    if(velocity > 1)        velocity = 1;
-    else if (velocity < -1) velocity = -1;
+    if(lin_x > 1)        lin_x = 1;
+    else if (lin_x < -1) lin_x = -1;
 
     /* STEERING */
-    float theta, turn_radius, theta_in, theta_out, angle_left, angle_right;
+    float turn_radius, theta_in, theta_out, angle_left = HALF_PI, angle_right = HALF_PI;
 
-    if(turn == 0){
-      angle_left = angle_right = HALF_PI;
-    }
-    else{
-      /* Turn Scaling */
-      // theta = turn;
-  
+    if(ang_z != 0){ 
       /* Ackermann Steering Geometry */
-      //turn_radius = WHEEL_BASE / tan(theta);
-      turn_radius = abs(velocity / turn);
+      turn_radius = abs(lin_x / ang_z);
 
-      //if(turn_radius < MIN_TURN_RADIUS_METERS) turn_radius = MIN_TURN_RADIUS_METERS;
+      //if(turn_radius < MIN_TURN_RADIUS_METERS) ang_z_radius = MIN_TURN_RADIUS_METERS;
      
-        theta_in = atan2(WHEEL_BASE_METERS, turn_radius - HALF_TRACK_WIDTH_M);
-        theta_out = atan2(WHEEL_BASE_METERS, turn_radius + HALF_TRACK_WIDTH_M);  
-      
-      
+      theta_in = atan2(WHEEL_BASE, turn_radius - HALF_TRACK_WIDTH);
+      theta_out = atan2(WHEEL_BASE, turn_radius + HALF_TRACK_WIDTH);      
   
-      if(turn > 0){
-        angle_left = theta_in + HALF_PI;
-        angle_right = theta_out + HALF_PI;
+      if(ang_z > 0){
+        angle_left = HALF_PI + theta_in;
+        angle_right = HALF_PI + theta_out;
       }
       else{
         angle_left = HALF_PI - theta_out;
@@ -125,17 +118,17 @@ void loop() {
     /* Steering Servo Control */
     int pwm_left = round(2000 * angle_left / PI + 500);
     int pwm_right = round(2000 * angle_right / PI + 500);
-    left_steer.writeMicroseconds(pwm_left);
-    right_steer.writeMicroseconds(pwm_right);
+    servo_left.writeMicroseconds(pwm_left);
+    servo_right.writeMicroseconds(pwm_right);
 
-    /* MOTOR*/
-    motor_set = abs(velocity) * 120;  // 120 is from experimental maximum rps
+    /* Motor Control */
+    motor_set = abs(lin_x) * 120;  // 120 is from experimental maximum rps
     
-    if(velocity > 0){
+    if(lin_x > 0){
       digitalWrite(motor_fwd_pin, HIGH);
       digitalWrite(motor_bck_pin, LOW);
     }
-    else if(velocity < 0){
+    else if(lin_x < 0){
       digitalWrite(motor_fwd_pin, LOW);
       digitalWrite(motor_bck_pin, HIGH);
     }
@@ -143,30 +136,19 @@ void loop() {
       digitalWrite(motor_fwd_pin, HIGH);
       digitalWrite(motor_bck_pin, HIGH);
     }
-
-    #if DEBUG
-    printf("TURN = %f\nVELO = %f\n", turn, velocity);
-    printf("ANGLE_L = %f\nANGLE_R = %f\n\n", angle_left, angle_right);
-    #endif
   }
 
   /* Encoder & PID */
-  long interval;
-  long velo;
-  long time_now = millis();
-  if((interval = time_now - last_read) >= 10){
-    long cur_count = encoder.getCount();
-    long delta = encoder.getCount() - last_count;
-    velo = delta * 1000 / interval / 64;
-    #if DEBUG    
-    Serial.print(velo);
-    Serial.print(" ");
-    Serial.println(motor_set);
-    #endif
-    last_count = cur_count;
-    last_read = time_now;
+  long time_delta, rps;
+  unsigned long time_current = millis();
+  if((time_delta = time_current - time_prev) >= 10){
+    long count_current = encoder.getCount();
+    long count_delta = count_current - count_prev;
+    rps = count_delta * 15.625 / time_delta;
+    count_prev = count_current;
+    time_prev = time_current;
 
-    motor_encoder = (double)abs(velo);
+    motor_encoder = (double)abs(rps);
     motor_pid.Compute();
     if(motor_pwm == 0)  analogWrite(motor_enable_pin, 255);
     else                analogWrite(motor_enable_pin, motor_pwm);
