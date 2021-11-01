@@ -14,6 +14,7 @@
 #define TRACK_WIDTH 0.191
 #define HALF_TRACK_WIDTH TRACK_WIDTH / 2
 
+#define INVERSE_STEER 0
 
 // Pin Descriptions
 int servo_left_pin = 23;
@@ -104,7 +105,8 @@ void loop() {
      
       theta_in = atan2(WHEEL_BASE, turn_radius - HALF_TRACK_WIDTH);
       theta_out = atan2(WHEEL_BASE, turn_radius + HALF_TRACK_WIDTH);      
-  
+
+    #if !INVERSE_STEER
       if(ang_z > 0){
         angle_left = HALF_PI + theta_in;
         angle_right = HALF_PI + theta_out;
@@ -113,8 +115,18 @@ void loop() {
         angle_left = HALF_PI - theta_out;
         angle_right = HALF_PI - theta_in;
       }
+    #else
+      if(ang_z < 0){
+        angle_left = HALF_PI + theta_out;
+        angle_right = HALF_PI + theta_in;
+      }
+      else{
+        angle_left = HALF_PI - theta_in;
+        angle_right = HALF_PI - theta_out;
+      }
+    #endif
     }
-
+    
     /* Steering Servo Control */
     int pwm_left = round(2000 * angle_left / PI + 500);
     int pwm_right = round(2000 * angle_right / PI + 500);
