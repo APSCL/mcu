@@ -4,7 +4,7 @@
 
 #define DEBUG 0
 
-#define MAX_TURN_DEG 26
+#define MAX_TURN_DEG 42
 #define MAX_TURN_RAD MAX_TURN_DEG * PI / 180
 #define MIN_TURN_RADIUS WHEEL_BASE / tan(MAX_TURN_RAD)
 
@@ -14,7 +14,7 @@
 #define TRACK_WIDTH 0.191
 #define HALF_TRACK_WIDTH TRACK_WIDTH / 2
 
-#define INVERSE_STEER 0
+#define INVERSE_STEER 1
 
 // Pin Descriptions
 int servo_left_pin = 23;
@@ -101,7 +101,7 @@ void loop() {
       /* Ackermann Steering Geometry */
       turn_radius = abs(lin_x / ang_z);
 
-      //if(turn_radius < MIN_TURN_RADIUS_METERS) turn_radius = MIN_TURN_RADIUS_METERS;
+      if(turn_radius < MIN_TURN_RADIUS) turn_radius = MIN_TURN_RADIUS;
      
       theta_in = atan2(WHEEL_BASE, turn_radius - HALF_TRACK_WIDTH);
       theta_out = atan2(WHEEL_BASE, turn_radius + HALF_TRACK_WIDTH);      
@@ -117,12 +117,12 @@ void loop() {
       }
     #else
       if(ang_z < 0){
-        angle_left = HALF_PI + theta_out;
-        angle_right = HALF_PI + theta_in;
+        angle_left = HALF_PI + theta_in;
+        angle_right = HALF_PI + theta_out;
       }
       else{
-        angle_left = HALF_PI - theta_in;
-        angle_right = HALF_PI - theta_out;
+        angle_left = HALF_PI - theta_out;
+        angle_right = HALF_PI - theta_in;
       }
     #endif
     }
