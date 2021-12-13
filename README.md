@@ -1,6 +1,8 @@
 # esp_32
 ESP32 Motor Controller &amp; Sensor Data Acquisition
 
+Note: SW should be superseded by MicroROS
+
 ## Design
 The ESP32 sub-module is crucial to expanding the capabilities of the AGV. GPIO on the Jetson Nano is limited, especially when it comes to IO like UART and PWM. By having a UART connection with the Jetson Nano, the ESP32 can receive serial commands and perform tasks on behalf of the Jetson. This design also improves the real-time constraints of time sensitive tasks and reduces the work load on the Jetson.
 
