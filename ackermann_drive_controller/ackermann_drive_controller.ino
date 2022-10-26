@@ -1,6 +1,7 @@
 #include <ESP32Encoder.h>
 #include <ESP32Servo.h>
 #include <PID_v1.h>
+#include <Arduino.h>
 
 #define DEBUG 0
 
@@ -17,13 +18,13 @@
 #define INVERSE_STEER 1
 
 // Pin Descriptions
-int servo_left_pin = 23;
-int servo_right_pin = 22;
-int motor_enable_pin = 21;
-int motor_fwd_pin = 19;
-int motor_bck_pin = 18;
-int encoder_a_pin = 26;
-int encoder_b_pin = 25;
+const int servo_left_pin = 23;
+const int servo_right_pin = 22;
+const int motor_enable_pin = 21;
+const int motor_fwd_pin = 19;
+const int motor_bck_pin = 18;
+const int encoder_a_pin = 26;
+const int encoder_b_pin = 25;
 
 Servo servo_left, servo_right;
 
@@ -38,11 +39,27 @@ double motor_pwm = 0;
 double motor_set = 0;
 PID motor_pid(&motor_encoder, &motor_pwm, &motor_set, Kp, Ki, Kd, DIRECT);
 
+
+const int freq = 5000;
+const int resolution = 8;
+const int motor_fwd_channel = 4;
+const int motor_bck_channel = 5;
+
+inline void PWM_Setup(int channel, int pin){
+  ledcSetup(channel, freq, resolution);
+  ledcAttachPin(pin, channel);
+  ledcWrite(channel, 255);
+}
+
+inline void PWM_Write(int channel, int dutyCycle){
+  ledcWrite(channel, dutyCycle);
+}
+
 void setup() {
   #if DEBUG
-  Serial.begin(115200);
-  #endif
   Serial.begin(9600);
+  #endif
+  Serial.begin(9600); // originally 9600
 
   /* Servo Setup */
   servo_left.attach(servo_left_pin);
@@ -54,6 +71,8 @@ void setup() {
   pinMode(motor_enable_pin, OUTPUT);
   pinMode(motor_fwd_pin, OUTPUT);
   pinMode(motor_bck_pin, OUTPUT);
+  PWM_Setup(motor_fwd_channel, motor_fwd_pin);
+  PWM_Setup(motor_bck_channel, motor_bck_pin);
   analogWrite(motor_enable_pin, 0);
 
   pinMode(encoder_a_pin, INPUT);
@@ -87,8 +106,14 @@ void loop() {
     u.b[3] = drive_msg[4];
     lin_x = u.f;
 
+//    ang_z = Serial.parseFloat();
+//    lin_x = Serial.parseFloat();
+
     #if DEBUG
-    printf("ANG_Z = %f LIN_X = %f\n", ang_z, lin_x);
+    Serial.print("ANG_Z =  ");
+    Serial.println(ang_z, 4); 
+    Serial.print("LIN_X =  ");
+    Serial.println(lin_x, 4);
     #endif
     
     if(lin_x > 1)        lin_x = 1;
@@ -130,6 +155,14 @@ void loop() {
     /* Steering Servo Control */
     int pwm_left = round(2000 * angle_left / PI + 500);
     int pwm_right = round(2000 * angle_right / PI + 500);
+    
+    #if DEBUG
+    Serial.print("pwm_left = ");
+    Serial.println(pwm_left, DEC);
+    Serial.print("pwm_right = ");
+    Serial.println(pwm_right, DEC);
+    #endif
+    
     servo_left.writeMicroseconds(pwm_left);
     servo_right.writeMicroseconds(pwm_right);
 
@@ -137,16 +170,16 @@ void loop() {
     motor_set = abs(lin_x) * 120;  // 120 is from experimental maximum rps
     
     if(lin_x > 0){
-      digitalWrite(motor_fwd_pin, HIGH);
-      digitalWrite(motor_bck_pin, LOW);
+      PWM_Write(motor_fwd_channel, lin_x * 255);
+      PWM_Write(motor_bck_channel, 0);
     }
     else if(lin_x < 0){
-      digitalWrite(motor_fwd_pin, LOW);
-      digitalWrite(motor_bck_pin, HIGH);
+      PWM_Write(motor_fwd_channel, 0);
+      PWM_Write(motor_bck_channel, (-lin_x) * 255);
     }
     else {
-      digitalWrite(motor_fwd_pin, HIGH);
-      digitalWrite(motor_bck_pin, HIGH);
+      PWM_Write(motor_fwd_channel, 255);
+      PWM_Write(motor_bck_channel, 255);
     }
   }
 
