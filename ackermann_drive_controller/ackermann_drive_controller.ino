@@ -105,7 +105,7 @@ void loop() {
     u.b[2] = drive_msg[5];
     u.b[3] = drive_msg[4];
     lin_x = u.f;
-
+    
 //    ang_z = Serial.parseFloat();
 //    lin_x = Serial.parseFloat();
 
@@ -115,9 +115,14 @@ void loop() {
     Serial.print("LIN_X =  ");
     Serial.println(lin_x, 4);
     #endif
+
+    if(lin_x > 0 && lin_x < 0.75) lin_x = 0.75;
     
-    if(lin_x > 1)        lin_x = 1;
-    else if (lin_x < -1) lin_x = -1;
+    if(lin_x > 1.5)        lin_x = 1.5;
+    else if (lin_x < -1.5) lin_x = -1.5;
+    
+    if(ang_z > 0.6)        ang_z = 0.6;
+    else if (ang_z < -0.6) ang_z = -0.6;
 
     /* STEERING */
     float turn_radius, theta_in, theta_out, angle_left = HALF_PI, angle_right = HALF_PI;
@@ -170,32 +175,36 @@ void loop() {
     motor_set = abs(lin_x) * 120;  // 120 is from experimental maximum rps
     
     if(lin_x > 0){
-      PWM_Write(motor_fwd_channel, lin_x * 255);
+      PWM_Write(motor_fwd_channel, (lin_x / 1.5) * 255);
       PWM_Write(motor_bck_channel, 0);
+      analogWrite(motor_enable_pin, 255);
     }
     else if(lin_x < 0){
       PWM_Write(motor_fwd_channel, 0);
-      PWM_Write(motor_bck_channel, (-lin_x) * 255);
+      PWM_Write(motor_bck_channel, (-lin_x / 1.5) * 255);
+      analogWrite(motor_enable_pin, -255);
     }
     else {
       PWM_Write(motor_fwd_channel, 255);
       PWM_Write(motor_bck_channel, 255);
+      analogWrite(motor_enable_pin, 0);
     }
   }
+  
 
   /* Encoder & PID */
-  long time_delta, rps;
-  unsigned long time_current = millis();
-  if((time_delta = time_current - time_prev) >= 10){
-    long count_current = encoder.getCount();
-    long count_delta = count_current - count_prev;
-    rps = count_delta * 15.625 / time_delta;
-    count_prev = count_current;
-    time_prev = time_current;
-
-    motor_encoder = (double)abs(rps);
-    motor_pid.Compute();
-    if(motor_pwm == 0)  analogWrite(motor_enable_pin, 255);
-    else                analogWrite(motor_enable_pin, motor_pwm);
-  }
+//  long time_delta, rps;
+//  unsigned long time_current = millis();
+//  if((time_delta = time_current - time_prev) >= 10){
+//    long count_current = encoder.getCount();
+//    long count_delta = count_current - count_prev;
+//    rps = count_delta * 15.625 / time_delta;
+//    count_prev = count_current;
+//    time_prev = time_current;
+//
+//    motor_encoder = (double)abs(rps);
+//    motor_pid.Compute();
+//    if(motor_pwm == 0)  analogWrite(motor_enable_pin, 255);
+//    else                analogWrite(motor_enable_pin, motor_pwm);
+//  }
 }
